@@ -1,143 +1,97 @@
 import streamlit as st
 import pandas as pd
+import os
 
-st.set_page_config(
-    page_title="대한민국 축구 선수 정보 앱",
-    page_icon="⚽",
-    layout="wide"
-)
+st.set_page_config(page_title="아이돌 검색 앱", page_icon="🎤", layout="wide")
 
-players = [
-    {
-        "이름": "손흥민",
-        "영문명": "Son Heung-min",
-        "출생": "1992년",
-        "포지션": "공격수",
-        "소속팀": "토트넘 홋스퍼",
-        "장점": "스피드, 슈팅, 골 결정력",
-        "설명": "대한민국 축구 국가대표 주장으로 세계적인 공격수입니다."
-    },
-    {
-        "이름": "김민재",
-        "영문명": "Kim Min-jae",
-        "출생": "1996년",
-        "포지션": "수비수",
-        "소속팀": "바이에른 뮌헨",
-        "장점": "몸싸움, 수비력, 제공권",
-        "설명": "강한 피지컬과 빠른 판단력을 가진 중앙 수비수입니다."
-    },
-    {
-        "이름": "이강인",
-        "영문명": "Lee Kang-in",
-        "출생": "2001년",
-        "포지션": "미드필더",
-        "소속팀": "파리 생제르맹",
-        "장점": "드리블, 패스, 창의성",
-        "설명": "뛰어난 기술과 패스 감각을 가진 미드필더입니다."
-    },
-    {
-        "이름": "황희찬",
-        "영문명": "Hwang Hee-chan",
-        "출생": "1996년",
-        "포지션": "공격수",
-        "소속팀": "울버햄프턴",
-        "장점": "돌파, 활동량, 압박",
-        "설명": "저돌적인 플레이와 빠른 돌파가 강점인 공격수입니다."
-    },
-    {
-        "이름": "조규성",
-        "영문명": "Cho Gue-sung",
-        "출생": "1998년",
-        "포지션": "공격수",
-        "소속팀": "미트윌란",
-        "장점": "헤딩, 위치 선정, 제공권",
-        "설명": "월드컵에서 인상적인 활약을 보여준 스트라이커입니다."
-    }
-]
+st.title("🎤 아이돌 데이터 검색 앱")
+st.write("여자/남자 아이돌을 검색하고, 소속사를 입력하면 그룹을 볼 수 있어요.")
 
-df = pd.DataFrame(players)
+# 파일 자동 찾기
+files = os.listdir()
+data_files = [f for f in files if f.endswith((".csv", ".xlsx"))]
 
-st.title("⚽ 대한민국 축구 선수 정보 앱")
-st.write("선수를 검색하고, 포지션별로 확인하고, 선수 정보를 비교할 수 있는 앱입니다.")
+if not data_files:
+    st.error("데이터 파일이 없어요. csv 또는 xlsx 파일을 GitHub에 같이 올려주세요.")
+    st.stop()
+
+file_name = data_files[0]
+
+if file_name.endswith(".csv"):
+    df = pd.read_csv(file_name)
+else:
+    df = pd.read_excel(file_name)
+
+st.success(f"데이터 파일 불러오기 성공: {file_name}")
+
+st.subheader("📌 전체 데이터")
+st.dataframe(df, use_container_width=True)
 
 st.divider()
 
-search = st.text_input("🔍 선수 이름 검색", placeholder="예: 손흥민, 김민재, 이강인")
+# 성별 검색
+st.subheader("👧👦 여자 / 남자 아이돌 검색")
 
-position = st.selectbox(
-    "📌 포지션 선택",
-    ["전체"] + sorted(df["포지션"].unique().tolist())
+gender = st.selectbox(
+    "성별을 선택하세요",
+    ["전체", "여자", "남자"]
 )
 
-filtered_df = df.copy()
+if gender != "전체":
+    gender_df = df[
+        df.astype(str).apply(
+            lambda row: row.str.contains(gender, case=False, na=False).any(),
+            axis=1
+        )
+    ]
+else:
+    gender_df = df
 
-if search:
-    filtered_df = filtered_df[
-        filtered_df["이름"].str.contains(search, case=False) |
-        filtered_df["영문명"].str.contains(search, case=False)
+st.dataframe(gender_df, use_container_width=True)
+
+st.divider()
+
+# 아이돌 이름 검색
+st.subheader("🔍 아이돌 이름 검색")
+
+idol_name = st.text_input("아이돌 이름을 입력하세요")
+
+if idol_name:
+    result = df[
+        df.astype(str).apply(
+            lambda row: row.str.contains(idol_name, case=False, na=False).any(),
+            axis=1
+        )
     ]
 
-if position != "전체":
-    filtered_df = filtered_df[filtered_df["포지션"] == position]
-
-st.subheader("📋 선수 목록")
-st.dataframe(filtered_df, use_container_width=True)
+    st.write(f"검색 결과: {len(result)}개")
+    st.dataframe(result, use_container_width=True)
 
 st.divider()
 
-st.subheader("⭐ 선수 상세 정보")
+# 소속사 검색
+st.subheader("🏢 소속사로 그룹 찾기")
 
-if len(filtered_df) > 0:
-    selected_player = st.selectbox(
-        "자세히 볼 선수를 선택하세요",
-        filtered_df["이름"].tolist()
-    )
+agency = st.text_input("소속사를 입력하세요 예: HYBE, SM, JYP, YG")
 
-    player = df[df["이름"] == selected_player].iloc[0]
+if agency:
+    agency_result = df[
+        df.astype(str).apply(
+            lambda row: row.str.contains(agency, case=False, na=False).any(),
+            axis=1
+        )
+    ]
 
-    col1, col2 = st.columns(2)
-
-    with col1:
-        st.info(f"""
-        ### {player['이름']}
-        **영문명:** {player['영문명']}  
-        **출생:** {player['출생']}  
-        **포지션:** {player['포지션']}  
-        **소속팀:** {player['소속팀']}
-        """)
-
-    with col2:
-        st.success(f"""
-        ### 장점
-        {player['장점']}
-
-        ### 설명
-        {player['설명']}
-        """)
-
-else:
-    st.warning("검색 결과가 없습니다.")
-
-st.divider()
-
-st.subheader("📊 포지션별 선수 수")
-
-position_count = df["포지션"].value_counts()
-st.bar_chart(position_count)
-
-st.divider()
-
-st.subheader("📝 나만의 선수 메모장")
-
-memo = st.text_area("선수에 대해 기억하고 싶은 내용을 적어보세요.")
-
-if st.button("메모 확인"):
-    if memo.strip():
-        st.success("작성한 메모입니다.")
-        st.write(memo)
+    if len(agency_result) > 0:
+        st.write(f"'{agency}' 검색 결과: {len(agency_result)}개")
+        st.dataframe(agency_result, use_container_width=True)
     else:
-        st.warning("메모를 입력해 주세요.")
+        st.warning("해당 소속사의 그룹을 찾을 수 없어요.")
 
 st.divider()
 
-st.caption("Made with Streamlit | 대한민국 축구 선수 정보 앱")
+# 간단 통계
+st.subheader("📊 데이터 요약")
+st.write(f"전체 데이터 개수: {len(df)}개")
+st.write(f"컬럼 개수: {len(df.columns)}개")
+st.write("컬럼 이름:", list(df.columns))
